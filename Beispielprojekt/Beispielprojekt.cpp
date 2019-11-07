@@ -14,12 +14,13 @@ const double DT = 100.0;
 //Hallo Marvin wie gehts dir heute
 class GameWindow : public Gosu::Window
 {
+	int y = 10;
 public:
 	Gosu::Image bild;
 	GameWindow()
-		: Window(800, 600)
+		: Window(1920, 1080)
 	{
-		set_caption("Gosu Tutorial Game mit Git");
+		set_caption("Slotti - A Knossi Tribute");
 	}
 
 	// wird bis zu 60x pro Sekunde aufgerufen.
@@ -27,11 +28,17 @@ public:
 	// dann werden `draw` Aufrufe ausgelassen und die Framerate sinkt
 	void draw() override
 	{
+		graphics().draw_rect
+		(
+			10, y, 40, 60, Gosu::Color::RED,0.0
+			);
+
 	}
 
 	// Wird 60x pro Sekunde aufgerufen
 	void update() override
 	{
+		y = y ++ %600;
 	}
 };
 
