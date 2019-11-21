@@ -47,7 +47,13 @@ class GameWindow : public Gosu::Window
 
 	std::map<Symbols, Gosu::Image> translation;
 
-	int counter = 200;
+	int counter_rotations[5];
+	int winners[5];
+	int factor[5] = { 10,10,10,10,10 };
+	Symbols winner_matrix[5][3];
+
+	bool started = false;
+
 public:
 
 	GameWindow()
@@ -72,30 +78,71 @@ public:
 		graphics().draw_rect(0, 0, 300, 1000, Gosu::Color::BLUE, 1.0);
 		graphics().draw_rect(1600 - 300, 0, 300, 1000, Gosu::Color::BLUE, 1.0);*/
 		//graphics().draw_rect(488, 0, 12, 1000, Gosu::Color::BLUE, 1.0);
-
 		fillRollsVisual();
-
 	}
 
 	// Wird 60x pro Sekunde aufgerufen
 	void update() override
 	{
-		for (int i = 0; i < 5; i++) {
-			for (int j = 0; j < 9; j++) {
-				this->reference_Co[i][j] += 10;
-				if (this->reference_Co[i][j] > 1800) {
-					this->reference_Co[i][j] = 0;
+		int x = input().mouse_x();
+		int y = input().mouse_y();
+		if (!this->started && x >= 1349 && x <= 1549 && y >= 749 && y <= 849 && input().down(Gosu::MS_LEFT)) {
+			fillRollsMatrix();
+			initReferences();
+			this->started = true;
+		}
+		
+		if (started) {
+			for (int i = 0; i < 5; i++) {
+				for (int j = 0; j < 9; j++) {
+					this->reference_Co[i][j] += factor[i];
+					if (this->reference_Co[i][j] == (this->winners[i] - this->counter_rotations[i] * 1800)) {
+						factor[i] = 0;
+						break;
+					}
+					if (this->reference_Co[i][j] > 1799) {
+						this->reference_Co[i][j] = 0;
+						if (j == 0) {
+							this->counter_rotations[i] += 1;
+						}
+					}
 				}
 			}
-			counter += 10;
+			if (factor[0] == 0 && factor[1] == 0 && factor[2] == 0 && factor[3] == 0 && factor[4] == 0) {
+				int index = 0;
+				for (int i = 0; i < 5; i++) {
+					for (int j = 0; j < 9; j++) {
+						if (this->reference_Co[i][j] == 200) {
+							this->winner_matrix[i][index] = this->reference[i][j % 9];
+							this->winner_matrix[i][index + 1] = this->reference[i][(j + 1) % 9];
+							this->winner_matrix[i][index + 2] = this->reference[i][(j + 2) % 9];
+						}
+					}
+					index = 0;
+				}
+				for (int i = 0; i < 5; i++) {
+					this->counter_rotations[i] = 0;
+					this->factor[i] = 10;
+				}
+				this->started = false;
+
+				/*
+				for (int i = 0; i < 3; i++) {
+					for (int j = 0; j < 5; j++) {
+						std::cout << (int)this->winner_matrix[j][i] << ",";
+					}
+					cout << endl;
+				}
+				cout << endl;*/
+
+			}
 		}
-		//if (counter >= 3 * 1800) {
-		//	if()
-		//}
 	}
 
 	void fillRollsMatrix() {
 		for (int h = 0; h < 5; h++) {
+			counter_rotations[h] = 0;
+			this->winners[h] = returnWinningIndex();
 			for (int i = 0; i < 9; i++) {
 				this->reference[h][i] = (Symbols)i;
 			}
@@ -106,7 +153,6 @@ public:
 			for (int i = 9; i > 0; i--) {
 				//get swap index
 				double zf = rand();
-				//cout << "Zufall = " << zf << endl;
 				int j = int(zf) % i;
 
 				//swap i with j
@@ -115,12 +161,16 @@ public:
 				this->reference[h][j] = temp;
 			}
 		}
+		/*
 		for (int i = 0; i < 9; i++) {
 			for (int j = 0; j < 5; j++) {
-				std::cout << (int) this->reference[j][i] << ",";
+				std::cout << (int)this->reference[j][i] << ",";
 			}
-			std::cout << std::endl;
+			cout << endl;
 		}
+		cout << endl;
+		*/
+
 	}
 
 	void initReferences() {
@@ -166,23 +216,18 @@ public:
 		int x_co = 300;
 		for (int i = 0; i < 5; i++) {
 			for (int j = 0; j < 9; j++) {
-				cout << int(this->reference[i][j]) << endl;
 				map<Symbols, Gosu::Image>::iterator it = this->translation.find(this->reference[i][j]);
-				cout << int(it->first) << endl;
 				it->second.draw(x_co, this->reference_Co[i][j], 0.5);
 			}
 			x_co += 200;
 		}
 	}
 
-	int* returnWinningIndex() {
-		int arr[5];
+	int returnWinningIndex() {
 		//decide on which Symbol to stop
-		for (int i = 0; i < 5; i++) {
-			double zf = rand();
-			arr[i] = int(zf) % 9;
-		}
-		return arr;
+		int w = 5400 + (std::rand() % (9000 - 5400 + 1));
+		w /= 200;
+		return ceil(w) * 200;
 	}
 
 };
