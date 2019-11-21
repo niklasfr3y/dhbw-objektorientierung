@@ -43,17 +43,17 @@ class GameWindow : public Gosu::Window
 	Gosu::Image barBarBar;
 	Gosu::Image orange;
 	Gosu::Image background;
+	Gosu::Image innen;
 
 	std::map<Symbols, Gosu::Image> translation;
 
-	int y_Seven = 0;
-	int y_Melon = 0;
+	int counter = 200;
 public:
 
 	GameWindow()
 		: Window(1600, 1000), seven("DIE SIEBEN DU HUND.png"), melon("MELOOOONE.png"), plum("IT'S  A MOTHERFUCKIN' PLUM.png"), zitrapattoni("ZITR(APATT)ONI.png")
 		, banana("BANANANAANAS.png"), bIGWIN("JAAACKPOOOOOT.png"), cherryLady("JUICYCHERRY.png"), barBarBar("ES REGNET BARES BITCHES.png"), orange("ORANGEMORANGE BLYAT.png")
-		, background("Slotti.png")
+		, background("Slotti.png"), innen("Innen.png")
 
 
 	{
@@ -65,7 +65,8 @@ public:
 	// dann werden `draw` Aufrufe ausgelassen und die Framerate sinkt
 	void draw() override
 	{
-		//background.draw(0, 0, 1.0);
+		background.draw(0, 0, 1.0);
+		innen.draw(300, 150, 0.0);
 		/*graphics().draw_rect(0, 0, 1600, 100, Gosu::Color::BLUE, 1.0);
 		graphics().draw_rect(0, 1000 - 100, 1600, 100, Gosu::Color::BLUE, 1.0); 
 		graphics().draw_rect(0, 0, 300, 1000, Gosu::Color::BLUE, 1.0);
@@ -86,7 +87,11 @@ public:
 					this->reference_Co[i][j] = 0;
 				}
 			}
+			counter += 10;
 		}
+		//if (counter >= 3 * 1800) {
+		//	if()
+		//}
 	}
 
 	void fillRollsMatrix() {
@@ -164,10 +169,20 @@ public:
 				cout << int(this->reference[i][j]) << endl;
 				map<Symbols, Gosu::Image>::iterator it = this->translation.find(this->reference[i][j]);
 				cout << int(it->first) << endl;
-				it->second.draw(x_co, this->reference_Co[i][j], 0.0);
+				it->second.draw(x_co, this->reference_Co[i][j], 0.5);
 			}
 			x_co += 200;
 		}
+	}
+
+	int* returnWinningIndex() {
+		int arr[5];
+		//decide on which Symbol to stop
+		for (int i = 0; i < 5; i++) {
+			double zf = rand();
+			arr[i] = int(zf) % 9;
+		}
+		return arr;
 	}
 
 };
