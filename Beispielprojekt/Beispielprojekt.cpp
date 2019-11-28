@@ -36,7 +36,6 @@ class GameWindow : public Gosu::Window
 	int reference_Co[5][9];
 	Gosu::Image reference_Visual[5][9];
 
-
 	Gosu::Image seven;
 	Gosu::Image melon;
 	Gosu::Image plum;
@@ -51,6 +50,8 @@ class GameWindow : public Gosu::Window
 	Gosu::Image pointer;
 	Gosu::Image lines_image;
 	Gosu::Image info_image;
+
+	Gosu::Sample start_sound;
 
 	std::map<Symbols, Gosu::Image> translation;
 
@@ -79,7 +80,7 @@ public:
 	GameWindow()
 		: Window(1600, 1000), seven("DIE SIEBEN DU HUND.png"), melon("MELOOOONE.png"), plum("IT'S  A MOTHERFUCKIN' PLUM.png"), zitrapattoni("ZITR(APATT)ONI.png")
 		, apple("APPLE.png"), bIGWIN("JAAACKPOOOOOT.png"), cherryLady("JUICYCHERRY.png"), barBarBar("ES REGNET BARES BITCHES.png"), grape("GRAPE.png")
-		, background("Slotti.png"), innen("Innen.png"), pointer("pointer.png"), lines_image("Linien.png"), info_image("Informationen.png")
+		, background("Slotti.png"), innen("Innen.png"), pointer("pointer.png"), lines_image("Linien.png"), info_image("Informationen.png"), start_sound("start_sound.wav")
 
 
 	{
@@ -114,7 +115,7 @@ public:
 		std::stringstream stream_payout;
 		stream_payout << std::fixed << std::setprecision(2) << this->payout << " $";
 		std::string s_payout = stream_payout.str();
-		this->f_amount.draw(s_payout, 1225, 897, 2.0, 1.0, 1.0, Gosu::Color::WHITE, Gosu::AlphaMode::AM_DEFAULT);
+		this->f_amount.draw(s_payout, 1130, 897, 2.0, 1.0, 1.0, Gosu::Color::WHITE, Gosu::AlphaMode::AM_DEFAULT);
 
 		// +- Einsätze
 		//-
@@ -125,6 +126,8 @@ public:
 		//graphics().draw_rect(49, 749, 200, 100, Gosu::Color::BLUE, 0.0);
 		// gamble
 		//graphics().draw_rect(1349, 349, 200, 200, Gosu::Color::BLUE, 0.0);
+
+		this->pointer.draw(this->x_mouse, this->y_mouse, 10.0, 0.4, 0.4);
 
 		if (this->gamble) {
 			this->innen.draw(300, 150, 2);
@@ -140,9 +143,7 @@ public:
 		else {
 			this->innen.draw(300, 150, 0);
 			fillRollsVisual();
-		}
-		this->pointer.draw(this->x_mouse, this->y_mouse, 10.0, 0.4, 0.4);
-	}
+		}	}
 
 	// Wird 60x pro Sekunde aufgerufen
 	void update() override
@@ -247,9 +248,9 @@ public:
 		}
 
 		if (this->amount <= this->credit && !this->started && this->x_mouse >= 1349 && this->x_mouse <= 1549 && this->y_mouse >= 749 && this->y_mouse <= 849 && input().down(Gosu::MS_LEFT)) {
+			this->start_sound.play();
 			fillRollsMatrix();
 			initReferences();
-			//this->payout = 0;
 			this->credit -= this->amount;
 			this->started = true;
 		}
