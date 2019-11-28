@@ -22,12 +22,12 @@ const double DT = 100.0;
 class GameWindow : public Gosu::Window
 {
 	enum class Symbols {
-		BANANA = 0,
+		APPLE = 0,
 		CHERRY = 1,
 		PLUM = 2,
 		MELON = 3,
 		CITRUS = 4,
-		ORANGE = 5,
+		GRAPE = 5,
 		BAR = 6,
 		SEVEN = 7,
 		BIGWIN = 8
@@ -41,14 +41,16 @@ class GameWindow : public Gosu::Window
 	Gosu::Image melon;
 	Gosu::Image plum;
 	Gosu::Image zitrapattoni;
-	Gosu::Image banana;
+	Gosu::Image apple;
 	Gosu::Image bIGWIN;
 	Gosu::Image cherryLady;
 	Gosu::Image barBarBar;
-	Gosu::Image orange;
+	Gosu::Image grape;
 	Gosu::Image background;
 	Gosu::Image innen;
 	Gosu::Image pointer;
+	Gosu::Image lines_image;
+	Gosu::Image info_image;
 
 	std::map<Symbols, Gosu::Image> translation;
 
@@ -59,6 +61,9 @@ class GameWindow : public Gosu::Window
 	Symbols winning_lines[9][5];
 
 	bool started;
+	bool gamble;
+	bool lines;
+	bool info;
 
 	double amount;
 	Gosu::Font f_amount = Gosu::Font(50, "amount");
@@ -73,16 +78,19 @@ public:
 
 	GameWindow()
 		: Window(1600, 1000), seven("DIE SIEBEN DU HUND.png"), melon("MELOOOONE.png"), plum("IT'S  A MOTHERFUCKIN' PLUM.png"), zitrapattoni("ZITR(APATT)ONI.png")
-		, banana("BANANANAANAS.png"), bIGWIN("JAAACKPOOOOOT.png"), cherryLady("JUICYCHERRY.png"), barBarBar("ES REGNET BARES BITCHES.png"), orange("ORANGEMORANGE BLYAT.png")
-		, background("Slotti.png"), innen("Innen.png"), pointer("pointer.png")
+		, apple("APPLE.png"), bIGWIN("JAAACKPOOOOOT.png"), cherryLady("JUICYCHERRY.png"), barBarBar("ES REGNET BARES BITCHES.png"), grape("GRAPE.png")
+		, background("Slotti.png"), innen("Innen.png"), pointer("pointer.png"), lines_image("Linien.png"), info_image("Informationen.png")
 
 
 	{
 		this->credit = 500;
 		this->payout = 0;
 		this->amount = 0.1;
+		this->info = false;
 		this->started = false;
-		set_caption("Gosu Tutorial Game mit Git");
+		this->gamble = false;
+		this->lines = false;
+		set_caption("Slotti");
 	}
 
 	// wird bis zu 60x pro Sekunde aufgerufen.
@@ -90,33 +98,63 @@ public:
 	// dann werden `draw` Aufrufe ausgelassen und die Framerate sinkt
 	void draw() override
 	{
-		background.draw(0, 0, 1.0);
-		innen.draw(300, 150, 0.0);
+		this->background.draw(0, 0, 1.0);
+		//innen.draw(300, 150, this->z_pos_innen);
 
-		std::stringstream stream;
-		stream << std::fixed << std::setprecision(2) << this->amount << " $";
-		std::string s = stream.str();
-		this->f_amount.draw(s, 80, 430, 2.0, 1.0, 1.0, Gosu::Color::WHITE, Gosu::AlphaMode::AM_DEFAULT);
+		std::stringstream stream_amount;
+		stream_amount << std::fixed << std::setprecision(2) << this->amount << " $";
+		std::string s_amount = stream_amount.str();
+		this->f_amount.draw(s_amount, 80, 430, 2.0, 1.0, 1.0, Gosu::Color::WHITE, Gosu::AlphaMode::AM_DEFAULT);
+
+		std::stringstream stream_credit;
+		stream_credit << std::fixed << std::setprecision(2) << this->credit << " $";
+		std::string s_credit = stream_credit.str();
+		this->f_amount.draw(s_credit, 600, 897, 2.0, 1.0, 1.0, Gosu::Color::WHITE, Gosu::AlphaMode::AM_DEFAULT);
+
+		std::stringstream stream_payout;
+		stream_payout << std::fixed << std::setprecision(2) << this->payout << " $";
+		std::string s_payout = stream_payout.str();
+		this->f_amount.draw(s_payout, 1225, 897, 2.0, 1.0, 1.0, Gosu::Color::WHITE, Gosu::AlphaMode::AM_DEFAULT);
 
 		// +- Einsätze
-		graphics().draw_rect(70, 350, 30, 80, Gosu::Color::BLUE, 1.0);
-		graphics().draw_rect(200, 350, 50, 80, Gosu::Color::BLUE, 1.0);
+		//-
+		//graphics().draw_rect(90, 370, 35, 35, Gosu::Color::BLUE, 0.0);
+		//+
+		//graphics().draw_rect(160, 365, 40, 40, Gosu::Color::BLUE, 1.0);
 		//Max Einsatz
 		//graphics().draw_rect(49, 749, 200, 100, Gosu::Color::BLUE, 0.0);
 		// gamble
 		//graphics().draw_rect(1349, 349, 200, 200, Gosu::Color::BLUE, 0.0);
-		//graphics().draw_rect(488, 0, 12, 1000, Gosu::Color::BLUE, 1.0);
 
-		fillRollsVisual();
-		this->pointer.draw(this->x_mouse, this->y_mouse, 10.0);
+		if (this->gamble) {
+			this->innen.draw(300, 150, 2);
+		}
+		else if (this->lines) {
+			this->innen.draw(300, 150, 0);
+			this->lines_image.draw(300, 200, 2);
+			fillRollsVisual();
+		}
+		else if (this->info) {
+			this->info_image.draw(300, 150, 3);
+		}
+		else {
+			this->innen.draw(300, 150, 0);
+			fillRollsVisual();
+		}
+		this->pointer.draw(this->x_mouse, this->y_mouse, 10.0, 0.4, 0.4);
 	}
 
 	// Wird 60x pro Sekunde aufgerufen
 	void update() override
 	{
+		if ((this->lines || this->info) && this->x_mouse >= 0 && this->x_mouse <= 1600 && this->y_mouse >= 0 && this->y_mouse <= 1000 && input().down(Gosu::MS_LEFT)) {
+			this->lines = false;
+			this->info = false;
+		}
+
 		this->x_mouse = input().mouse_x();
 		this->y_mouse = input().mouse_y();
-		if (!this->started && this->x_mouse >= 70 && this->x_mouse <= 100 && this->y_mouse >= 350 && this->y_mouse <= 430 && input().down(Gosu::MS_LEFT)) {
+		if (!this->started && this->x_mouse >= 90 && this->x_mouse <= 125 && this->y_mouse >= 370 && this->y_mouse <= 405 && input().down(Gosu::MS_LEFT)) {
 			if (this->amount == 0.10) {
 				return;
 			}
@@ -145,7 +183,7 @@ public:
 			Sleep(200);
 		}
 
-		if (!this->started && this->x_mouse >= 200 && this->x_mouse <= 250 && this->y_mouse >= 350 && this->y_mouse <= 430 && input().down(Gosu::MS_LEFT)) {
+		if (!this->started && this->x_mouse >= 160 && this->x_mouse <= 200 && this->y_mouse >= 365 && this->y_mouse <= 405 && input().down(Gosu::MS_LEFT)) {
 			if (this->amount == 0.10) {
 				this->amount = 0.2;
 			}
@@ -184,8 +222,26 @@ public:
 
 		//
 		//
-		if (this->payout > 0 && !this->started && this->x_mouse >= 1349 && this->x_mouse <= 1549 && this->y_mouse >= 349 && this->y_mouse <= 549 && input().down(Gosu::MS_LEFT)) {
+		if (/*this->payout > 0 &&*/ !this->started && this->x_mouse >= 1349 && this->x_mouse <= 1549 && this->y_mouse >= 349 && this->y_mouse <= 549 && input().down(Gosu::MS_LEFT)) {
 			cout << "gamble" << endl;
+			//for drawing purposes
+			this->gamble = true;
+			
+			
+			//wait to avoid multiple presses
+			Sleep(200);
+		}
+
+		if (!this->info && !this->started && this->x_mouse >= 100 && this->x_mouse <= 200 && this->y_mouse >= 100 && this->y_mouse <= 200 && input().down(Gosu::MS_LEFT)) {
+			cout << "Info" << endl;
+			this->info = true;
+			//wait to avoid multiple presses
+			Sleep(200);
+		}
+
+		if (!this->lines && !this->started && this->x_mouse >= 49 && this->x_mouse <= 249 && this->y_mouse >= 599 && this->y_mouse <= 699 && input().down(Gosu::MS_LEFT)) {
+			cout << "Linien" << endl;
+			this->lines = true;
 			//wait to avoid multiple presses
 			Sleep(200);
 		}
@@ -193,7 +249,7 @@ public:
 		if (this->amount <= this->credit && !this->started && this->x_mouse >= 1349 && this->x_mouse <= 1549 && this->y_mouse >= 749 && this->y_mouse <= 849 && input().down(Gosu::MS_LEFT)) {
 			fillRollsMatrix();
 			initReferences();
-			this->payout = 0;
+			//this->payout = 0;
 			this->credit -= this->amount;
 			this->started = true;
 		}
@@ -238,9 +294,10 @@ public:
 				}
 				this->started = false;
 
-				calcPayout();
+				this->payout = calcPayout();
 				this->credit += this->payout;
 				cout << this->credit << endl;
+
 				/*
 				//print for debug
 				for (int i = 0; i < 3; i++) {
@@ -312,8 +369,9 @@ public:
 		this->winning_lines[8][4] = this->winner_matrix[4][2];
 	}
 
-	void calcPayout() {
+	double calcPayout() {
 		fillWinningLines();
+		double temp = 0;
 		for (int i = 0; i < 9; i++) {
 			double factorForPayout = 0;
 			Symbols current = this->winning_lines[i][0];
@@ -321,26 +379,34 @@ public:
 			while (current == this->winning_lines[i][counter]) {
 				//calculate multiplicator
 				switch (counter) {
-				case 1: if (int(this->winning_lines[i][0]) >= 6) { factorForPayout = 2; }
+				case 1: if (this->winning_lines[i][0] == Symbols::BAR) { factorForPayout = 1; }
+						else if (this->winning_lines[i][0] == Symbols::SEVEN) { factorForPayout = 1.5; }
+						else if (this->winning_lines[i][0] == Symbols::BIGWIN) { factorForPayout = 1; }
 						else { factorForPayout = 0; }
 						break;
-				case 2: if (int(this->winning_lines[i][0]) >= 6) { factorForPayout = 5; }
-						else { factorForPayout = 0.5; }
-						break;
-				case 3: if (int(this->winning_lines[i][0]) >= 6) { factorForPayout = 10; }
+				case 2: if (this->winning_lines[i][0] == Symbols::BAR) { factorForPayout = 2; }
+						else if (this->winning_lines[i][0] == Symbols::SEVEN) { factorForPayout = 4; }
+						else if (this->winning_lines[i][0] == Symbols::BIGWIN) { factorForPayout = 2; }
 						else { factorForPayout = 1; }
 						break;
-				case 4: if (int(this->winning_lines[i][0]) >= 6) { factorForPayout = 20; }
-						else { factorForPayout = 2; }
+				case 3: if (this->winning_lines[i][0] == Symbols::BAR) { factorForPayout = 10; }
+						else if (this->winning_lines[i][0] == Symbols::SEVEN) { factorForPayout = 15; }
+						else if (this->winning_lines[i][0] == Symbols::BIGWIN) { factorForPayout = 10; }
+						else { factorForPayout = 5; }
+						break;
+				case 4: if (this->winning_lines[i][0] == Symbols::BAR) { factorForPayout = 20; }
+						else if (this->winning_lines[i][0] == Symbols::SEVEN) { factorForPayout = 40; }
+						else if (this->winning_lines[i][0] == Symbols::BIGWIN) { factorForPayout = 20; }
+						else { factorForPayout = 10; }
 						break;
 				}
 				current = this->winning_lines[i][counter];
 				counter++;
 				if (counter == 5) break;
 			}
-			this->payout += (this->amount * factorForPayout);
+			temp += (this->amount * factorForPayout);
 		}
-		cout << payout << endl;
+		return temp;
 
 	}
 
@@ -396,7 +462,7 @@ public:
 
 	Gosu::Image returnCorrespondingImage(int reference) {
 		switch ((Symbols)reference) {
-		case Symbols::BANANA: return this->banana;
+		case Symbols::APPLE: return this->apple;
 			break;
 		case Symbols::CHERRY: return this->cherryLady;
 			break;
@@ -412,18 +478,18 @@ public:
 			break;
 		case Symbols::CITRUS: return this->zitrapattoni;
 			break;
-		case Symbols::ORANGE: return this->orange;
+		case Symbols::GRAPE: return this->grape;
 			break;
 		}
 	}
 
 	void fillRollsVisual() {
 		//reference 300 * column_index
-		int x_co = 300;
+		int x_co = 314;
 		for (int i = 0; i < 5; i++) {
 			for (int j = 0; j < 9; j++) {
 				map<Symbols, Gosu::Image>::iterator it = this->translation.find(this->reference[i][j]);
-				it->second.draw(x_co, this->reference_Co[i][j], 0.5);
+				it->second.draw(x_co, this->reference_Co[i][j], 0.5, 0.9, 1);
 			}
 			x_co += 200;
 		}
