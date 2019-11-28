@@ -50,6 +50,9 @@ class GameWindow : public Gosu::Window
 	Gosu::Image pointer;
 	Gosu::Image lines_image;
 	Gosu::Image info_image;
+	Gosu::Image gamble_image;
+	Gosu::Image knossi;
+	Gosu::Image monte;
 
 	Gosu::Sample start_sound;
 
@@ -57,7 +60,7 @@ class GameWindow : public Gosu::Window
 
 	int counter_rotations[5];
 	int winners[5];
-	int factor[5] = { 20,20,20,20,20 };
+	int factor[5] = { 20, 25, 25, 20, 25 };
 	Symbols winner_matrix[5][3];
 	Symbols winning_lines[9][5];
 
@@ -65,6 +68,8 @@ class GameWindow : public Gosu::Window
 	bool gamble;
 	bool lines;
 	bool info;
+	bool choice;
+	bool gamble_switch;
 
 	double amount;
 	Gosu::Font f_amount = Gosu::Font(50, "amount");
@@ -80,7 +85,8 @@ public:
 	GameWindow()
 		: Window(1600, 1000), seven("DIE SIEBEN DU HUND.png"), melon("MELOOOONE.png"), plum("IT'S  A MOTHERFUCKIN' PLUM.png"), zitrapattoni("ZITR(APATT)ONI.png")
 		, apple("APPLE.png"), bIGWIN("JAAACKPOOOOOT.png"), cherryLady("JUICYCHERRY.png"), barBarBar("ES REGNET BARES BITCHES.png"), grape("GRAPE.png")
-		, background("Slotti.png"), innen("Innen.png"), pointer("pointer.png"), lines_image("Linien.png"), info_image("Informationen.png"), start_sound("start_sound.wav")
+		, background("Slotti.png"), innen("Innen.png"), pointer("pointer.png"), lines_image("Linien.png"), info_image("Informationen.png"), gamble_image("Gamble.png")
+		, knossi("knossi.png"), monte("monte.png"), start_sound("start_sound.wav")
 
 
 	{
@@ -90,6 +96,8 @@ public:
 		this->info = false;
 		this->started = false;
 		this->gamble = false;
+		this->choice = false; // false == Knossi; true == monte
+		this->gamble_switch = false;
 		this->lines = false;
 		set_caption("Slotti");
 	}
@@ -130,7 +138,27 @@ public:
 		this->pointer.draw(this->x_mouse, this->y_mouse, 10.0, 0.4, 0.4);
 
 		if (this->gamble) {
-			this->innen.draw(300, 150, 2);
+			//this->innen.draw(300, 150, 2);
+			this->gamble_image.draw(300, 150, 3);
+
+			std::stringstream stream_payout;
+			stream_payout << std::fixed << std::setprecision(2) << this->payout << " $";
+			std::string s_payout = stream_payout.str();
+			this->f_amount.draw(s_payout, 520, 305, 4.0, 1.0, 1.0, Gosu::Color::WHITE, Gosu::AlphaMode::AM_DEFAULT);
+
+			std::stringstream stream_gamble;
+			stream_gamble << std::fixed << std::setprecision(2) << this->payout * 2 << " $";
+			std::string s_gamble = stream_gamble.str();
+			this->f_amount.draw(s_gamble, 960, 305, 4.0, 1.0, 1.0, Gosu::Color::WHITE, Gosu::AlphaMode::AM_DEFAULT);
+
+			if (this->gamble_switch) {
+				this->knossi.draw();
+			}
+			else {
+
+			}
+			this->gamble_switch = !this->gamble_switch;
+
 		}
 		else if (this->lines) {
 			this->innen.draw(300, 150, 0);
@@ -143,7 +171,8 @@ public:
 		else {
 			this->innen.draw(300, 150, 0);
 			fillRollsVisual();
-		}	}
+		}	
+	}
 
 	// Wird 60x pro Sekunde aufgerufen
 	void update() override
@@ -151,6 +180,7 @@ public:
 		if ((this->lines || this->info) && this->x_mouse >= 0 && this->x_mouse <= 1600 && this->y_mouse >= 0 && this->y_mouse <= 1000 && input().down(Gosu::MS_LEFT)) {
 			this->lines = false;
 			this->info = false;
+			this->gamble = false;
 		}
 
 		this->x_mouse = input().mouse_x();
@@ -233,6 +263,30 @@ public:
 			Sleep(200);
 		}
 
+		if (/*this->payout > 0 &&*/ this->gamble && !this->started && this->x_mouse >= 700 && this->x_mouse <= 900 && this->y_mouse >= 699 && this->y_mouse <= 799 && input().down(Gosu::MS_LEFT)) {
+			cout << "Nehmen" << endl;
+			//for drawing purposes
+
+			//wait to avoid multiple presses
+			Sleep(200);
+		}
+
+		if (/*this->payout > 0 &&*/ this->gamble && !this->started && this->x_mouse >= 425 && this->x_mouse <= 600 && this->y_mouse >= 462 && this->y_mouse <= 652 && input().down(Gosu::MS_LEFT)) {
+			cout << "Knossi" << endl;
+			this->choice = false;
+
+			//wait to avoid multiple presses
+			Sleep(200);
+		}
+
+		if (/*this->payout > 0 &&*/ this->gamble && !this->started && this->x_mouse >= 999 && this->x_mouse <= 1174 && this->y_mouse >= 462 && this->y_mouse <= 652 && input().down(Gosu::MS_LEFT)) {
+			cout << "Montana" << endl;
+			this->choice = true;
+
+			//wait to avoid multiple presses
+			Sleep(200);
+		}
+
 		if (!this->info && !this->started && this->x_mouse >= 100 && this->x_mouse <= 200 && this->y_mouse >= 100 && this->y_mouse <= 200 && input().down(Gosu::MS_LEFT)) {
 			cout << "Info" << endl;
 			this->info = true;
@@ -259,10 +313,10 @@ public:
 			//spin wheels until winner coordinate is reached
 			for (int i = 0; i < 5; i++) {
 				for (int j = 0; j < 9; j++) {
-					this->reference_Co[i][j] += factor[i];
+					this->reference_Co[i][j] += this->factor[i];
 					//check if winner coordinate is reached
 					if (this->reference_Co[i][j] == (this->winners[i] - this->counter_rotations[i] * 1800)) {
-						factor[i] = 0;
+						this->factor[i] = 0;
 						break;
 					}
 					//increase counter for rotations
@@ -423,6 +477,14 @@ public:
 		//shuffle references
 		srand(time(NULL));
 		for (int h = 0; h < 5; h++) {
+			double zf = rand();
+			int j = int(zf) % (5-h);
+
+			//swap i with j
+			int temp = this->factor[4 - h];
+			this->factor[4 - h] = this->factor[j];
+			this->factor[j] = temp;
+
 			for (int i = 9; i > 0; i--) {
 				//get swap index
 				double zf = rand();
