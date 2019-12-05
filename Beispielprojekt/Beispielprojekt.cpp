@@ -8,7 +8,6 @@
 #include <iostream>
 
 #include "Vektor2d.h"
-#include <algorithm>    // std::random_shuffle
 #include <map>
 #include <iomanip>
 #include <sstream>
@@ -21,7 +20,7 @@ const double DT = 100.0;
 
 class GameWindow : public Gosu::Window
 {
-	enum class Symbols {
+	enum Symbols {
 		APPLE = 0,
 		CHERRY = 1,
 		PLUM = 2,
@@ -32,9 +31,13 @@ class GameWindow : public Gosu::Window
 		SEVEN = 7,
 		BIGWIN = 8
 	};
+
 	Symbols reference[5][9];
 	int reference_Co[5][9];
 	Gosu::Image reference_Visual[5][9];
+
+	Symbols winner_matrix[5][3];
+	Symbols winning_lines[9][5];
 
 	Gosu::Image seven;
 	Gosu::Image melon;
@@ -51,34 +54,36 @@ class GameWindow : public Gosu::Window
 	Gosu::Image lines_image;
 	Gosu::Image info_image;
 	Gosu::Image gamble_image;
-	Gosu::Image knossi;
-	Gosu::Image monte;
+	Gosu::Image knossi_image;
+	Gosu::Image monte_image;
 
 	Gosu::Sample start_sound;
+
+	Gosu::Font f_amount = Gosu::Font(50, "amount");
 
 	std::map<Symbols, Gosu::Image> translation;
 
 	int counter_rotations[5];
 	int winners[5];
 	int factor[5] = { 20, 25, 25, 20, 25 };
-	Symbols winner_matrix[5][3];
-	Symbols winning_lines[9][5];
 
+	//to regulate button presses and draw() calls
 	bool started;
 	bool gamble;
 	bool lines;
 	bool info;
 	bool choice;
+	bool knossi;
 	bool gamble_switch;
+	int gamble_random;
 
-	double amount;
-	Gosu::Font f_amount = Gosu::Font(50, "amount");
-
-	int x_mouse;
-	int y_mouse;
+	double x_mouse;
+	double y_mouse;
 
 	double credit;
+	double amount;
 	double payout;
+	double gamble_payout;
 
 public:
 
@@ -86,17 +91,19 @@ public:
 		: Window(1600, 1000), seven("DIE SIEBEN DU HUND.png"), melon("MELOOOONE.png"), plum("IT'S  A MOTHERFUCKIN' PLUM.png"), zitrapattoni("ZITR(APATT)ONI.png")
 		, apple("APPLE.png"), bIGWIN("JAAACKPOOOOOT.png"), cherryLady("JUICYCHERRY.png"), barBarBar("ES REGNET BARES BITCHES.png"), grape("GRAPE.png")
 		, background("Slotti.png"), innen("Innen.png"), pointer("pointer.png"), lines_image("Linien.png"), info_image("Informationen.png"), gamble_image("Gamble.png")
-		, knossi("knossi.png"), monte("monte.png"), start_sound("start_sound.wav")
+		, knossi_image("knossi.png"), monte_image("monte.png"), start_sound("start_sound.wav")
 
 
 	{
 		this->credit = 500;
 		this->payout = 0;
+		this->gamble_payout = 0;
 		this->amount = 0.1;
 		this->info = false;
 		this->started = false;
 		this->gamble = false;
-		this->choice = false; // false == Knossi; true == monte
+		this->choice = false;
+		this->knossi = false;		// false == Knossi; true == monte
 		this->gamble_switch = false;
 		this->lines = false;
 		set_caption("Slotti");
@@ -108,7 +115,7 @@ public:
 	void draw() override
 	{
 		this->background.draw(0, 0, 1.0);
-		//innen.draw(300, 150, this->z_pos_innen);
+		this->pointer.draw(this->x_mouse, this->y_mouse, 10.0, 0.4, 0.4);
 
 		std::stringstream stream_amount;
 		stream_amount << std::fixed << std::setprecision(2) << this->amount << " $";
@@ -125,20 +132,7 @@ public:
 		std::string s_payout = stream_payout.str();
 		this->f_amount.draw(s_payout, 1130, 897, 2.0, 1.0, 1.0, Gosu::Color::WHITE, Gosu::AlphaMode::AM_DEFAULT);
 
-		// +- Einsätze
-		//-
-		//graphics().draw_rect(90, 370, 35, 35, Gosu::Color::BLUE, 0.0);
-		//+
-		//graphics().draw_rect(160, 365, 40, 40, Gosu::Color::BLUE, 1.0);
-		//Max Einsatz
-		//graphics().draw_rect(49, 749, 200, 100, Gosu::Color::BLUE, 0.0);
-		// gamble
-		//graphics().draw_rect(1349, 349, 200, 200, Gosu::Color::BLUE, 0.0);
-
-		this->pointer.draw(this->x_mouse, this->y_mouse, 10.0, 0.4, 0.4);
-
 		if (this->gamble) {
-			//this->innen.draw(300, 150, 2);
 			this->gamble_image.draw(300, 150, 3);
 
 			std::stringstream stream_payout;
@@ -147,16 +141,29 @@ public:
 			this->f_amount.draw(s_payout, 520, 305, 4.0, 1.0, 1.0, Gosu::Color::WHITE, Gosu::AlphaMode::AM_DEFAULT);
 
 			std::stringstream stream_gamble;
-			stream_gamble << std::fixed << std::setprecision(2) << this->payout * 2 << " $";
+			stream_gamble << std::fixed << std::setprecision(2) << this->gamble_payout << " $";
 			std::string s_gamble = stream_gamble.str();
 			this->f_amount.draw(s_gamble, 960, 305, 4.0, 1.0, 1.0, Gosu::Color::WHITE, Gosu::AlphaMode::AM_DEFAULT);
 
-			if (this->gamble_switch) {
-				this->knossi.draw();
+			if (!this->choice && this->gamble_switch) {
+				this->knossi_image.draw(715, 457, 4);
 			}
-			else {
+			else if (!this->choice && !this->gamble_switch) {
+				this->monte_image.draw(715, 457, 4);
+			}
+			else if (this->choice) {
+				if (this->gamble_random == 1) {
+					this->knossi_image.draw(715, 457, 4);
+					Sleep(500);
+				}
+				else {
+					this->monte_image.draw(715, 457, 4);
+					Sleep(500);
+				}
+				this->gamble_random = rand() % 2;
 
 			}
+			//alternates images
 			this->gamble_switch = !this->gamble_switch;
 
 		}
@@ -171,21 +178,23 @@ public:
 		else {
 			this->innen.draw(300, 150, 0);
 			fillRollsVisual();
-		}	
+		}
 	}
 
 	// Wird 60x pro Sekunde aufgerufen
 	void update() override
 	{
-		if ((this->lines || this->info) && this->x_mouse >= 0 && this->x_mouse <= 1600 && this->y_mouse >= 0 && this->y_mouse <= 1000 && input().down(Gosu::MS_LEFT)) {
+		//mouse press anywhere to return to 'main screen'
+		if ((this->lines || this->info) && !this->gamble && this->x_mouse >= 0 && this->x_mouse <= 1600 && this->y_mouse >= 0 && this->y_mouse <= 1000 && input().down(Gosu::MS_LEFT)) {
 			this->lines = false;
 			this->info = false;
-			this->gamble = false;
 		}
 
 		this->x_mouse = input().mouse_x();
 		this->y_mouse = input().mouse_y();
-		if (!this->started && this->x_mouse >= 90 && this->x_mouse <= 125 && this->y_mouse >= 370 && this->y_mouse <= 405 && input().down(Gosu::MS_LEFT)) {
+
+		//increase betting amount
+		if (!this->gamble && !this->started && this->x_mouse >= 90 && this->x_mouse <= 125 && this->y_mouse >= 370 && this->y_mouse <= 405 && input().down(Gosu::MS_LEFT)) {
 			if (this->amount == 0.10) {
 				return;
 			}
@@ -214,7 +223,8 @@ public:
 			Sleep(200);
 		}
 
-		if (!this->started && this->x_mouse >= 160 && this->x_mouse <= 200 && this->y_mouse >= 365 && this->y_mouse <= 405 && input().down(Gosu::MS_LEFT)) {
+		//decrease betting amount
+		if (!this->gamble && !this->started && this->x_mouse >= 160 && this->x_mouse <= 200 && this->y_mouse >= 365 && this->y_mouse <= 405 && input().down(Gosu::MS_LEFT)) {
 			if (this->amount == 0.10) {
 				this->amount = 0.2;
 			}
@@ -243,70 +253,100 @@ public:
 			Sleep(200);
 		}
 
-		if (!this->started && this->x_mouse >= 49 && this->x_mouse <= 249 && this->y_mouse >= 749 && this->y_mouse <= 849 && input().down(Gosu::MS_LEFT)) {
+		//set max betting amount
+		if (!this->started && !this->gamble && this->x_mouse >= 49 && this->x_mouse <= 249 && this->y_mouse >= 749 && this->y_mouse <= 849 && input().down(Gosu::MS_LEFT)) {
 			this->amount = 20.0;
 		}
 
-		//gamble logic
-		//
-		//
+		//declare that a choice has been made in 'gamble'
+		if (this->gamble && !this->started && this->choice) {
+			this->choice = false;
+		}
 
-		//
-		//
-		if (/*this->payout > 0 &&*/ !this->started && this->x_mouse >= 1349 && this->x_mouse <= 1549 && this->y_mouse >= 349 && this->y_mouse <= 549 && input().down(Gosu::MS_LEFT)) {
+		//gamble 
+		if (this->payout > 0 && !this->gamble && !this->choice && !this->started && this->x_mouse >= 1349 && this->x_mouse <= 1549 && this->y_mouse >= 349 && this->y_mouse <= 549 && input().down(Gosu::MS_LEFT)) {
 			cout << "gamble" << endl;
 			//for drawing purposes
 			this->gamble = true;
-			
-			
+			this->choice = false;
+			this->gamble_payout = this->payout * 2;
+			srand(time(NULL));
+			this->gamble_random = rand() % 2;
+			this->credit -= this->payout;
 			//wait to avoid multiple presses
 			Sleep(200);
 		}
 
-		if (/*this->payout > 0 &&*/ this->gamble && !this->started && this->x_mouse >= 700 && this->x_mouse <= 900 && this->y_mouse >= 699 && this->y_mouse <= 799 && input().down(Gosu::MS_LEFT)) {
+		//button in 'gamble'
+		if (this->gamble && !this->started && this->x_mouse >= 700 && this->x_mouse <= 900 && this->y_mouse >= 699 && this->y_mouse <= 799 && input().down(Gosu::MS_LEFT)) {
 			cout << "Nehmen" << endl;
 			//for drawing purposes
-
+			this->credit += this->payout;
+			this->choice = true;
+			this->gamble = false;
 			//wait to avoid multiple presses
 			Sleep(200);
 		}
 
-		if (/*this->payout > 0 &&*/ this->gamble && !this->started && this->x_mouse >= 425 && this->x_mouse <= 600 && this->y_mouse >= 462 && this->y_mouse <= 652 && input().down(Gosu::MS_LEFT)) {
+		//button in 'gamble'
+		if (this->payout > 0 && this->gamble && !this->started && this->x_mouse >= 425 && this->x_mouse <= 600 && this->y_mouse >= 462 && this->y_mouse <= 652 && input().down(Gosu::MS_LEFT)) {
 			cout << "Knossi" << endl;
-			this->choice = false;
-
+			this->choice = true;
+			this->knossi = true;
+			if (this->gamble_random == 1) {
+				this->payout = this->gamble_payout;
+				this->gamble_payout *= 2;
+			}
+			else {
+				this->payout = 0;
+				this->gamble_payout = 0;
+			}
 			//wait to avoid multiple presses
 			Sleep(200);
 		}
 
-		if (/*this->payout > 0 &&*/ this->gamble && !this->started && this->x_mouse >= 999 && this->x_mouse <= 1174 && this->y_mouse >= 462 && this->y_mouse <= 652 && input().down(Gosu::MS_LEFT)) {
+		//button in 'gamble'
+		if (this->payout > 0 && this->gamble && !this->started && this->x_mouse >= 999 && this->x_mouse <= 1174 && this->y_mouse >= 462 && this->y_mouse <= 652 && input().down(Gosu::MS_LEFT)) {
 			cout << "Montana" << endl;
 			this->choice = true;
-
+			this->knossi = false;
+			if (this->gamble_random == 0) {
+				this->payout = this->gamble_payout;
+				this->gamble_payout *= 2;
+			}
+			else {
+				this->payout = 0;
+				this->gamble_payout = 0;
+			}
 			//wait to avoid multiple presses
 			Sleep(200);
 		}
 
-		if (!this->info && !this->started && this->x_mouse >= 100 && this->x_mouse <= 200 && this->y_mouse >= 100 && this->y_mouse <= 200 && input().down(Gosu::MS_LEFT)) {
+		//info '?' field
+		if (!this->info && !this->gamble && !this->started && this->x_mouse >= 100 && this->x_mouse <= 200 && this->y_mouse >= 100 && this->y_mouse <= 200 && input().down(Gosu::MS_LEFT)) {
 			cout << "Info" << endl;
 			this->info = true;
 			//wait to avoid multiple presses
 			Sleep(200);
 		}
 
-		if (!this->lines && !this->started && this->x_mouse >= 49 && this->x_mouse <= 249 && this->y_mouse >= 599 && this->y_mouse <= 699 && input().down(Gosu::MS_LEFT)) {
+		//lines-button showing all possible combinations
+		if (!this->lines && !this->gamble && !this->started && this->x_mouse >= 49 && this->x_mouse <= 249 && this->y_mouse >= 599 && this->y_mouse <= 699 && input().down(Gosu::MS_LEFT)) {
 			cout << "Linien" << endl;
 			this->lines = true;
 			//wait to avoid multiple presses
 			Sleep(200);
 		}
 
-		if (this->amount <= this->credit && !this->started && this->x_mouse >= 1349 && this->x_mouse <= 1549 && this->y_mouse >= 749 && this->y_mouse <= 849 && input().down(Gosu::MS_LEFT)) {
+		//start the actual slot machine
+		if (this->amount <= this->credit && !this->gamble && !this->started && this->x_mouse >= 1349 && this->x_mouse <= 1549 && this->y_mouse >= 749 && this->y_mouse <= 849 && input().down(Gosu::MS_LEFT)) {
 			this->start_sound.play();
 			fillRollsMatrix();
 			initReferences();
 			this->credit -= this->amount;
 			this->started = true;
+			this->choice = false;
+			this->gamble = false;
 		}
 
 		if (started) {
@@ -345,28 +385,24 @@ public:
 				//reset counters and spinning factors
 				for (int i = 0; i < 5; i++) {
 					this->counter_rotations[i] = 0;
-					this->factor[i] = 20;
 				}
+				this->factor[0] = 25;
+				this->factor[1] = 20;
+				this->factor[2] = 25;
+				this->factor[3] = 20;
+				this->factor[4] = 25;
+
+				//reset bool, so that other menu items can be accessed
 				this->started = false;
 
 				this->payout = calcPayout();
 				this->credit += this->payout;
 				cout << this->credit << endl;
-
-				/*
-				//print for debug
-				for (int i = 0; i < 3; i++) {
-				for (int j = 0; j < 5; j++) {
-				std::cout << (int)this->winner_matrix[j][i] << ",";
-				}
-				cout << endl;
-				}
-				cout << endl;
-				*/
 			}
 		}
 	}
 
+	//organizing all winning line possibilities
 	void fillWinningLines() {
 		//Line 1 horizontal
 		this->winning_lines[0][0] = this->winner_matrix[0][0];
@@ -424,6 +460,7 @@ public:
 		this->winning_lines[8][4] = this->winner_matrix[4][2];
 	}
 
+	//calculates the won amount
 	double calcPayout() {
 		fillWinningLines();
 		double temp = 0;
@@ -465,6 +502,7 @@ public:
 
 	}
 
+	//fills the 5 wheels, 9 each, random order
 	void fillRollsMatrix() {
 		for (int h = 0; h < 5; h++) {
 			counter_rotations[h] = 0;
@@ -478,9 +516,9 @@ public:
 		srand(time(NULL));
 		for (int h = 0; h < 5; h++) {
 			double zf = rand();
-			int j = int(zf) % (5-h);
+			int j = int(zf) % (5 - h);
 
-			//swap i with j
+			//swap h with j
 			int temp = this->factor[4 - h];
 			this->factor[4 - h] = this->factor[j];
 			this->factor[j] = temp;
@@ -496,23 +534,15 @@ public:
 				this->reference[h][j] = temp;
 			}
 		}
-
-		for (int i = 0; i < 9; i++) {
-			for (int j = 0; j < 5; j++) {
-				std::cout << (int)this->reference[j][i] << ",";
-			}
-			cout << endl;
-		}
-		cout << endl;
-
-
 	}
 
+	//sets up a map with Symbols as key, Gosu::Image as value
 	void initReferences() {
 		for (int i = 0; i < 9; i++) {
 			translation.insert(std::pair<Symbols, Gosu::Image>((Symbols)i, returnCorrespondingImage(i)));
 		}
 
+		//distribute y coordinate accordingly
 		int y_start = 0;
 		for (int h = 0; h < 5; h++) {
 			for (int i = 0; i < 9; i++) {
@@ -523,6 +553,7 @@ public:
 		}
 	}
 
+	//returns the corresponding image to the given Symbol
 	Gosu::Image returnCorrespondingImage(int reference) {
 		switch ((Symbols)reference) {
 		case Symbols::APPLE: return this->apple;
@@ -546,8 +577,9 @@ public:
 		}
 	}
 
+	//draws the 5 wheels with each image at the given x/y coordinate
 	void fillRollsVisual() {
-		//reference 300 * column_index
+		//reference 314 * column_index
 		int x_co = 314;
 		for (int i = 0; i < 5; i++) {
 			for (int j = 0; j < 9; j++) {
@@ -558,10 +590,11 @@ public:
 		}
 	}
 
+	//returns the winning index, indicates when each wheel should stop
 	int returnWinningIndex() {
 		//decide on which Symbol to stop
 		//srand(time(NULL));
-		int w = 5400 + (std::rand() % (9000 - 5400 + 1));
+		int w = 5400 + (rand() % (9000 - 5400 + 1));
 		w /= 200;
 		return ceil(w) * 200;
 	}
